@@ -14,16 +14,11 @@ namespace Btw.TemplatePdf.Api.Controllers;
 public sealed class UblController : ControllerBase
 {
     private readonly IUblStore _ublStore;
-    private readonly FeDianDocumentClient _client;
     private readonly FeDianOptions _options;
 
-    public UblController(
-        IUblStore ublStore,
-        FeDianDocumentClient client,
-        IOptions<FeDianOptions> options)
+    public UblController(IUblStore ublStore, IOptions<FeDianOptions> options)
     {
         _ublStore = ublStore;
-        _client = client;
         _options = options.Value;
     }
 
@@ -32,7 +27,8 @@ public sealed class UblController : ControllerBase
         string? Nit,
         string Environment,
         string TypeDocument,
-        string UblXml);
+        string UblXml,
+        bool FeConfigured);
 
     /// <summary>GET /api/v1/ubl/by-cufe?cufe=…&amp;nit=…&amp;typeDocument=UBL</summary>
     [HttpGet("by-cufe")]
@@ -45,6 +41,7 @@ public sealed class UblController : ControllerBase
         [FromQuery] string typeDocument = "UBL",
         CancellationToken cancellationToken = default)
     {
+        _ = typeDocument;
         var key = (cufe ?? string.Empty).Trim();
         if (string.IsNullOrEmpty(key))
         {
@@ -59,18 +56,9 @@ public sealed class UblController : ControllerBase
         string? ublXml;
         try
         {
-            if (_client.IsConfigured)
-            {
-                ublXml = await _client
-                    .GetUblXmlAsync(key, typeDocument, cancellationToken)
-                    .ConfigureAwait(false);
-            }
-            else
-            {
-                ublXml = await _ublStore
-                    .GetUblXmlAsync(nit ?? "900000000", key, cancellationToken)
-                    .ConfigureAwait(false);
-            }
+            ublXml = await _ublStore
+                .GetUblXmlAsync(nit ?? "900000000", key, cancellationToken)
+                .ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -99,6 +87,7 @@ public sealed class UblController : ControllerBase
             TypeDocument: string.IsNullOrWhiteSpace(typeDocument)
                 ? "UBL"
                 : typeDocument.Trim().ToUpperInvariant(),
-            UblXml: ublXml));
+            UblXml: ublXml,
+            FeConfigured: !string.IsNullOrWhiteSpace(_options.BaseUrl)));
     }
 }
