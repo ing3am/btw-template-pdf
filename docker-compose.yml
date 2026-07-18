@@ -35,7 +35,7 @@ services:
       ASPNETCORE_ENVIRONMENT: ${ASPNETCORE_ENVIRONMENT:-Development}
       ASPNETCORE_URLS: http://+:8080
       ConnectionStrings__TemplatePdf: Host=postgres;Port=5432;Database=${POSTGRES_DB:-btw_template_pdf};Username=${POSTGRES_USER:-btw};Password=${POSTGRES_PASSWORD:-btw}
-      FeDian__BaseUrl: ${FEDIAN_BASE_URL:-}
+      FeDian__BaseUrl: ${FEDIAN_BASE_URL:-https://test-apiconnect.febtw.co/}
       FeDian__Environment: ${FEDIAN_ENVIRONMENT:-UAT}
       FeDian__AuthKey: ${FEDIAN_AUTH_KEY:-}
       FeDian__AllowStubFallback: ${FEDIAN_ALLOW_STUB_FALLBACK:-true}
