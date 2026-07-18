@@ -1,4 +1,5 @@
 using Btw.TemplatePdf.Infrastructure;
+using Btw.TemplatePdf.Infrastructure.Auth;
 using Btw.TemplatePdf.Infrastructure.Persistence;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -33,5 +34,20 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("Studio");
+
+// Capture FE JWT from studio: Authorization: Bearer <token>
+app.Use(async (context, next) =>
+{
+    var accessor = context.RequestServices.GetRequiredService<IFeBearerTokenAccessor>();
+    var header = context.Request.Headers.Authorization.ToString();
+    if (!string.IsNullOrWhiteSpace(header) &&
+        header.StartsWith("Bearer ", StringComparison.OrdinalIgnoreCase))
+    {
+        accessor.Token = header["Bearer ".Length..].Trim();
+    }
+
+    await next();
+});
+
 app.MapControllers();
 app.Run();

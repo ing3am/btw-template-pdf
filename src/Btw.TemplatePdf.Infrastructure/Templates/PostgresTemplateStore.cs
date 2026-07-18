@@ -69,6 +69,8 @@ public sealed class PostgresTemplateStore : ITemplateStore
             Page = page,
             Features = new TemplateFeatures { SectorSalud = template.SectorSalud },
             BlocksJson = version.BlocksJson,
+            Html = version.Html,
+            Css = version.Css,
             Assets = Array.Empty<TemplateAssetRef>(),
             UpdatedAt = template.UpdatedAt
         };

@@ -1,6 +1,7 @@
 using Btw.TemplatePdf.Application.Pdf;
 using Btw.TemplatePdf.Domain.Abstractions;
 using Btw.TemplatePdf.Infrastructure.Assets;
+using Btw.TemplatePdf.Infrastructure.Auth;
 using Btw.TemplatePdf.Infrastructure.Invoices;
 using Btw.TemplatePdf.Infrastructure.Pdf;
 using Btw.TemplatePdf.Infrastructure.Persistence;
@@ -25,6 +26,8 @@ public static class DependencyInjection
 
         services.Configure<FeDianOptions>(configuration.GetSection(FeDianOptions.SectionName));
 
+        services.AddScoped<IFeBearerTokenAccessor, FeBearerTokenAccessor>();
+
         services.AddHttpClient<FeDianDocumentClient>((sp, client) =>
         {
             var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<FeDianOptions>>().Value;
@@ -37,7 +40,7 @@ public static class DependencyInjection
         services.AddScoped<TemplateCatalogService>();
         services.AddSingleton<IUblToViewModelMapper, StubUblToViewModelMapper>();
         services.AddSingleton<IAssetStore, NullAssetStore>();
-        services.AddSingleton<IPdfRenderer, StubPdfRenderer>();
+        services.AddSingleton<IPdfRenderer, PlaywrightPdfRenderer>();
         services.AddScoped<GeneratePdfByCufeUseCase>();
         return services;
     }

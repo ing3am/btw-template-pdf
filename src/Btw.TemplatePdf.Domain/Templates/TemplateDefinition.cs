@@ -47,6 +47,10 @@ public sealed class TemplateDefinition
     public TemplateFeatures Features { get; init; } = new();
     /// <summary>Opaque JSON array of visual-builder blocks (same shape as studio blocksJson).</summary>
     public required string BlocksJson { get; init; }
+    /// <summary>Serialized HTML from the studio (with {{placeholders}}).</summary>
+    public string Html { get; init; } = string.Empty;
+    /// <summary>Serialized CSS from the studio.</summary>
+    public string Css { get; init; } = string.Empty;
     public IReadOnlyList<TemplateAssetRef> Assets { get; init; } = Array.Empty<TemplateAssetRef>();
     public DateTimeOffset UpdatedAt { get; init; } = DateTimeOffset.UtcNow;
 }

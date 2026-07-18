@@ -58,6 +58,24 @@ Configure `FeDian` in `appsettings` (`BaseUrl` = URL_FE, `AuthKey` = FeAuthKey).
 
 If FE is unreachable and `AllowStubFallback` is true, PDF generation can still use the demo UBL for NIT `900000000`.
 
+### Auth (studio → API → FE)
+
+The studio login token (same FE `auth/Authentication`) should be sent as:
+
+```http
+Authorization: Bearer <fe-jwt>
+```
+
+TemplatePdf forwards it to `GetDocumentFromDian`. No separate login is required when the Bearer is valid.
+
+### PDF engine
+
+HTML+CSS from the published template is filled with invoice placeholders, then printed with **Microsoft Playwright** (Chromium, MIT). First machine setup:
+
+```bash
+pwsh src/Btw.TemplatePdf.Api/bin/Debug/net10.0/playwright.ps1 install chromium
+```
+
 Demo PDF request: see `Btw.TemplatePdf.Api.http` (NIT `900000000`).
 
 ## Contract

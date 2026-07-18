@@ -4,6 +4,7 @@ using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using Btw.TemplatePdf.Infrastructure.Auth;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -12,6 +13,7 @@ namespace Btw.TemplatePdf.Infrastructure.Invoices;
 /// <summary>
 /// HTTP client mirroring ARService <c>FeDocumentClient.GetUblFromDianAsync</c>:
 /// GET {URL_FE}clientDian/ClientWcfDian/GetDocumentFromDian/{cufe}/{env}/false?typeDocument=UBL
+/// Prefer the studio-forwarded FE Bearer token when present.
 /// </summary>
 public sealed class FeDianDocumentClient
 {
@@ -22,15 +24,18 @@ public sealed class FeDianDocumentClient
 
     private readonly HttpClient _http;
     private readonly FeDianOptions _options;
+    private readonly IFeBearerTokenAccessor _bearer;
     private readonly ILogger<FeDianDocumentClient> _logger;
 
     public FeDianDocumentClient(
         HttpClient http,
         IOptions<FeDianOptions> options,
+        IFeBearerTokenAccessor bearer,
         ILogger<FeDianDocumentClient> logger)
     {
         _http = http;
         _options = options.Value;
+        _bearer = bearer;
         _logger = logger;
     }
 
@@ -117,6 +122,20 @@ public sealed class FeDianDocumentClient
         string requestUrl,
         CancellationToken cancellationToken)
     {
+        if (!string.IsNullOrWhiteSpace(_bearer.Token))
+        {
+            using var withUserToken = new HttpRequestMessage(HttpMethod.Get, requestUrl);
+            withUserToken.Headers.Authorization =
+                new AuthenticationHeaderValue("Bearer", _bearer.Token.Trim());
+            var userResponse = await _http.SendAsync(withUserToken, cancellationToken)
+                .ConfigureAwait(false);
+            if (userResponse.StatusCode != HttpStatusCode.Unauthorized)
+                return userResponse;
+
+            _logger.LogWarning("Forwarded FE Bearer was rejected; trying service AuthKey fallback.");
+            userResponse.Dispose();
+        }
+
         var response = await _http.GetAsync(requestUrl, cancellationToken).ConfigureAwait(false);
         if (response.StatusCode != HttpStatusCode.Unauthorized)
             return response;
