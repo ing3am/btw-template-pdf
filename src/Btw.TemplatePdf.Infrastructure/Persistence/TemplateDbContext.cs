@@ -40,6 +40,7 @@ public sealed class TemplateDbContext : DbContext
             entity.Property(x => x.SampleDataJson).HasColumnType("text");
             entity.Property(x => x.BlocksJson).HasColumnType("text");
             entity.Property(x => x.PageJson).HasColumnType("text");
+            entity.Property(x => x.AssetsJson).HasColumnType("text");
         });
     }
 }

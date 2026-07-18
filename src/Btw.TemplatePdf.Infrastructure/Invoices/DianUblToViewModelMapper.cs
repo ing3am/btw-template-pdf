@@ -54,7 +54,7 @@ public sealed class DianUblToViewModelMapper : IUblToViewModelMapper
             ublXml.Length);
         var uuid = First(Val(root, Cbc + "UUID"), cufe);
         var invoiceId = Val(root, Cbc + "ID") ?? string.Empty;
-        var (prefijo, numero) = SplitPrefijoNumero(invoiceId);
+        var (prefijo, _) = SplitPrefijoNumero(invoiceId);
         var issueDate = Val(root, Cbc + "IssueDate") ?? string.Empty;
         var issueTime = Val(root, Cbc + "IssueTime") ?? string.Empty;
         var dueDate = First(
@@ -167,7 +167,7 @@ public sealed class DianUblToViewModelMapper : IUblToViewModelMapper
             ["documento"] = new Dictionary<string, object?>
             {
                 ["tipo"] = MapDocumentTypeLabel(rootName, typeCode),
-                ["numero"] = string.IsNullOrWhiteSpace(numero) ? invoiceId : numero,
+                ["numero"] = invoiceId,
                 ["prefijo"] = prefijo,
                 ["autorizacion"] = autorizacion ?? string.Empty,
                 ["rangoDesde"] = rangoDesde ?? string.Empty,

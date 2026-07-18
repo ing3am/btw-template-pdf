@@ -95,8 +95,19 @@ public sealed class UblDiagnosticsWriter
         var baseName = $"ubl-{stamp}-{shortCufe}";
         var reportPath = Path.Combine(_logDir, $"{baseName}.txt");
         var xmlPath = Path.Combine(_logDir, $"{baseName}.xml");
+        var rawPath = Path.Combine(_logDir, $"{baseName}.raw.txt");
 
-        File.WriteAllText(xmlPath, ublXml, Encoding.UTF8);
+        var normalizedXml = TryNormalizeUblXml(ublXml, out var normalizeNote);
+        if (normalizedXml is not null)
+        {
+            File.WriteAllText(xmlPath, normalizedXml, new UTF8Encoding(encoderShouldEmitUTF8Identifier: false));
+        }
+        else
+        {
+            // Do NOT write invalid content as .xml (browsers show "Start tag expected").
+            File.WriteAllText(rawPath, ublXml ?? string.Empty, Encoding.UTF8);
+            xmlPath = rawPath;
+        }
 
         var sb = new StringBuilder();
         sb.AppendLine("=== UBL FETCH DIAGNOSTIC ===");
@@ -104,16 +115,28 @@ public sealed class UblDiagnosticsWriter
         sb.AppendLine($"source:    {source}");
         sb.AppendLine($"nit:       {nit}");
         sb.AppendLine($"cufe:      {cufe}");
-        sb.AppendLine($"xmlLength: {ublXml.Length}");
+        sb.AppendLine($"xmlLength: {(ublXml ?? string.Empty).Length}");
         sb.AppendLine($"xmlFile:   {xmlPath}");
+        if (!string.IsNullOrWhiteSpace(normalizeNote))
+            sb.AppendLine($"xmlNote:   {normalizeNote}");
+        if (normalizedXml is null)
+        {
+            sb.AppendLine("xmlStatus: NOT written as .xml (invalid for browsers)");
+            sb.AppendLine("tip:       Open the .raw.txt sibling, or the .txt report — not a fake .xml");
+        }
+        else
+        {
+            sb.AppendLine("xmlStatus: valid XML written");
+        }
         sb.AppendLine();
 
         string rootName = "?";
         var present = new List<string>();
         var missing = new List<string>();
+        var parseInput = normalizedXml ?? ublXml ?? string.Empty;
         try
         {
-            var doc = XDocument.Parse(ublXml, LoadOptions.PreserveWhitespace);
+            var doc = XDocument.Parse(parseInput, LoadOptions.PreserveWhitespace);
             rootName = doc.Root?.Name.LocalName ?? "?";
             var localNames = new HashSet<string>(
                 doc.Descendants().Select(e => e.Name.LocalName),
@@ -130,6 +153,7 @@ public sealed class UblDiagnosticsWriter
         catch (Exception ex)
         {
             sb.AppendLine($"XML PARSE ERROR: {ex.Message}");
+            sb.AppendLine("Open the .raw.txt sibling if .xml was not written.");
         }
 
         sb.AppendLine($"root: {rootName}");
@@ -248,4 +272,60 @@ public sealed class UblDiagnosticsWriter
 
     private static string Truncate(string value, int max) =>
         value.Length <= max ? value : value[..max] + "…";
+
+    /// <summary>
+    /// Ensures we only write a browser-openable .xml when content is real XML
+    /// (handles accidental Base64 payloads and BOM).
+    /// </summary>
+    private static string? TryNormalizeUblXml(string? raw, out string note)
+    {
+        note = string.Empty;
+        if (string.IsNullOrWhiteSpace(raw))
+        {
+            note = "empty payload";
+            return null;
+        }
+
+        var text = raw.Trim().TrimStart('\uFEFF');
+        if (text.StartsWith('<'))
+        {
+            try
+            {
+                XDocument.Parse(text, LoadOptions.PreserveWhitespace);
+                return text;
+            }
+            catch (Exception ex)
+            {
+                note = $"starts with '<' but invalid XML: {ex.Message}";
+                return null;
+            }
+        }
+
+        // Maybe FE left Base64 (not yet decoded).
+        try
+        {
+            var bytes = Convert.FromBase64String(text);
+            if (bytes.Length >= 2 && bytes[0] == 0x50 && bytes[1] == 0x4B)
+            {
+                note = "payload is a ZIP (Base64); open with a zip tool — not plain XML";
+                return null;
+            }
+
+            var decoded = Encoding.UTF8.GetString(bytes).Trim().TrimStart('\uFEFF');
+            if (decoded.StartsWith('<'))
+            {
+                XDocument.Parse(decoded, LoadOptions.PreserveWhitespace);
+                note = "decoded from Base64 to XML";
+                return decoded;
+            }
+
+            note = "Base64 decoded but result is not XML";
+            return null;
+        }
+        catch
+        {
+            note = "payload is not XML and not valid Base64 — see .raw.txt";
+            return null;
+        }
+    }
 }

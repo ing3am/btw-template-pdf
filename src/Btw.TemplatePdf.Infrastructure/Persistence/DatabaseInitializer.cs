@@ -14,6 +14,7 @@ public static class DatabaseInitializer
         var logger = scope.ServiceProvider.GetRequiredService<ILogger<TemplateDbContext>>();
 
         await db.Database.EnsureCreatedAsync(ct);
+        await EnsureAssetsJsonColumnAsync(db, ct);
         logger.LogInformation("PostgreSQL schema ensured for TemplatePdf.");
 
         if (await db.Templates.AnyAsync(ct))
@@ -46,6 +47,7 @@ public static class DatabaseInitializer
                     SampleDataJson = "{}",
                     BlocksJson = "[]",
                     PageJson = "{}",
+                    AssetsJson = "[]",
                     CreatedAt = now,
                     IsPublished = true
                 }
@@ -54,5 +56,15 @@ public static class DatabaseInitializer
 
         await db.SaveChangesAsync(ct);
         logger.LogInformation("Seeded demo template for NIT 900000000.");
+    }
+
+    private static async Task EnsureAssetsJsonColumnAsync(TemplateDbContext db, CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE template_versions
+            ADD COLUMN IF NOT EXISTS "AssetsJson" text NOT NULL DEFAULT '[]';
+            """,
+            ct);
     }
 }

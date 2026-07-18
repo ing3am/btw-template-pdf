@@ -73,6 +73,7 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
                     SampleDataJson = request.SampleDataJson ?? "{}",
                     BlocksJson = request.BlocksJson ?? "[]",
                     PageJson = request.PageJson ?? "{}",
+                    AssetsJson = request.AssetsJson ?? "[]",
                     CreatedAt = now,
                     IsPublished = false
                 }
@@ -118,6 +119,7 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
                 SampleDataJson = request.SampleDataJson,
                 BlocksJson = request.BlocksJson,
                 PageJson = request.PageJson ?? current.PageJson,
+                AssetsJson = request.AssetsJson ?? current.AssetsJson,
                 CreatedAt = now,
                 IsPublished = false
             };
@@ -135,6 +137,8 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
         current.BlocksJson = request.BlocksJson;
         if (request.PageJson is not null)
             current.PageJson = request.PageJson;
+        if (request.AssetsJson is not null)
+            current.AssetsJson = request.AssetsJson;
         current.CreatedAt = now;
         current.IsPublished = false;
 
@@ -172,6 +176,7 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
                 SampleDataJson = current.SampleDataJson,
                 BlocksJson = current.BlocksJson,
                 PageJson = current.PageJson,
+                AssetsJson = current.AssetsJson,
                 CreatedAt = now,
                 IsPublished = true
             };
@@ -218,5 +223,6 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
             v.SampleDataJson,
             v.BlocksJson,
             v.CreatedAt,
-            v.IsPublished);
+            v.IsPublished,
+            v.AssetsJson);
 }

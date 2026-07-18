@@ -2,6 +2,7 @@ using System.Text.Json;
 using Btw.TemplatePdf.Domain.Abstractions;
 using Btw.TemplatePdf.Domain.Common;
 using Btw.TemplatePdf.Domain.Templates;
+using Btw.TemplatePdf.Infrastructure.Assets;
 using Btw.TemplatePdf.Infrastructure.Persistence;
 using Microsoft.EntityFrameworkCore;
 
@@ -72,7 +73,7 @@ public sealed class PostgresTemplateStore : ITemplateStore
             BlocksJson = version.BlocksJson,
             Html = version.Html,
             Css = version.Css,
-            Assets = Array.Empty<TemplateAssetRef>(),
+            Assets = EmbeddedDataUrlAssetStore.ParseAssetsJson(version.AssetsJson),
             UpdatedAt = template.UpdatedAt
         };
     }

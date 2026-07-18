@@ -20,7 +20,8 @@ public sealed record TemplateVersionDto(
     string SampleDataJson,
     string BlocksJson,
     DateTimeOffset CreatedAt,
-    bool IsPublished);
+    bool IsPublished,
+    string AssetsJson = "[]");
 
 public sealed record TemplateBundleDto(TemplateDto Template, IReadOnlyList<TemplateVersionDto> Versions);
 
@@ -34,7 +35,8 @@ public sealed record CreateTemplateRequest(
     string? SchemaJson = null,
     string? SampleDataJson = null,
     string? BlocksJson = null,
-    string? PageJson = null);
+    string? PageJson = null,
+    string? AssetsJson = null);
 
 public sealed record SaveDraftRequest(
     string Html,
@@ -44,7 +46,8 @@ public sealed record SaveDraftRequest(
     string BlocksJson,
     string? PageJson = null,
     string? Nit = null,
-    bool? SectorSalud = null);
+    bool? SectorSalud = null,
+    string? AssetsJson = null);
 
 /// <summary>Persistence port for studio template catalog operations.</summary>
 public interface ITemplateCatalog

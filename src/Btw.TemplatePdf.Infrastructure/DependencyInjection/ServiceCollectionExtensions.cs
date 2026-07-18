@@ -43,7 +43,7 @@ public static class DependencyInjection
         services.AddScoped<ITemplateStore, PostgresTemplateStore>();
         services.AddScoped<ITemplateCatalog, PostgresTemplateCatalog>();
         services.AddSingleton<IUblToViewModelMapper, DianUblToViewModelMapper>();
-        services.AddSingleton<IAssetStore, NullAssetStore>();
+        services.AddSingleton<IAssetStore, EmbeddedDataUrlAssetStore>();
         services.AddSingleton<IPdfRenderer, PlaywrightPdfRenderer>();
         return services;
     }

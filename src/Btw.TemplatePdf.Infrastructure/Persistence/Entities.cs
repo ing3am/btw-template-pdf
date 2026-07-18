@@ -27,6 +27,8 @@ public sealed class TemplateVersionEntity
     public string SampleDataJson { get; set; } = "{}";
     public string BlocksJson { get; set; } = "[]";
     public string PageJson { get; set; } = "{}";
+    /// <summary>JSON array of embedded studio assets ({ id, name, mime, dataUrl }).</summary>
+    public string AssetsJson { get; set; } = "[]";
     public DateTimeOffset CreatedAt { get; set; }
     public bool IsPublished { get; set; }
 }
