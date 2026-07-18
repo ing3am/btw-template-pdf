@@ -1,0 +1,27 @@
+---
+description: Always build Docker images for linux/amd64 (production server)
+alwaysApply: true
+---
+
+# Docker: platform amd64
+
+Production server is **linux/amd64**. Development may be Mac arm64.
+
+## Required
+
+- `docker build` must include `--platform linux/amd64`
+- Compose build/run must declare `platform: linux/amd64`
+- Never publish an arm64-only image to Docker Hub for this project
+
+## Correct
+
+```bash
+docker build --platform linux/amd64 -t ingluigii/btw-template-pdf:latest .
+docker push ingluigii/btw-template-pdf:latest
+```
+
+## Incorrect
+
+```bash
+docker build -t ingluigii/btw-template-pdf:latest .
+```
