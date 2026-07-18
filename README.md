@@ -20,7 +20,34 @@
 Host=localhost;Port=5432;Database=btw_template_pdf;Username=postgres;Password=postgres
 ```
 
-Optional Docker Postgres (port **5433**, user/password `btw`): `docker compose up -d` then point the connection string to that port.
+### Docker (linux/amd64)
+
+Production images **must** be built for `linux/amd64` (server is amd64; Mac Apple Silicon is arm64).
+
+```bash
+# Build + push to Docker Hub
+./scripts/docker-build-push.sh
+# equivalent:
+docker build --platform linux/amd64 -t ingluigii/btw-template-pdf:latest .
+docker push ingluigii/btw-template-pdf:latest
+```
+
+Local API + Postgres:
+
+```bash
+cp .env.example .env   # edit secrets
+docker compose up -d --build
+# API: http://localhost:8080
+```
+
+On the server (after Hub push):
+
+```bash
+docker pull --platform linux/amd64 ingluigii/btw-template-pdf:latest
+docker compose up -d
+```
+
+Optional Docker Postgres only (port **5433**, user/password `btw`): `docker compose up -d postgres` then point the connection string to that port.
 
 ## Run
 
