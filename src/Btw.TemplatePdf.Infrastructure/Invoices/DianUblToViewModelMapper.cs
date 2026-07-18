@@ -18,10 +18,14 @@ public sealed class DianUblToViewModelMapper : IUblToViewModelMapper
         "urn:oasis:names:specification:ubl:schema:xsd:CommonAggregateComponents-2";
 
     private readonly ILogger<DianUblToViewModelMapper> _logger;
+    private readonly UblDiagnosticsWriter _diagnostics;
 
-    public DianUblToViewModelMapper(ILogger<DianUblToViewModelMapper> logger)
+    public DianUblToViewModelMapper(
+        ILogger<DianUblToViewModelMapper> logger,
+        UblDiagnosticsWriter diagnostics)
     {
         _logger = logger;
+        _diagnostics = diagnostics;
     }
 
     public InvoiceViewModel Map(string nit, string cufe, string ublXml)
@@ -244,11 +248,16 @@ public sealed class DianUblToViewModelMapper : IUblToViewModelMapper
         };
 
         UblMappingDiagnostics.LogMappedViewModel(_logger, nit, uuid ?? cufe, data);
+        _diagnostics.AppendMappingReport(
+            UblDiagnosticsAmbient.CurrentReportPath ?? string.Empty,
+            nit,
+            uuid ?? cufe,
+            data);
 
         return new InvoiceViewModel
         {
             Nit = nit,
-            Cufe = uuid,
+            Cufe = uuid ?? cufe,
             Data = data
         };
     }

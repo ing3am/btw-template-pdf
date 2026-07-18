@@ -35,6 +35,7 @@ public static class DependencyInjection
         });
 
         services.AddSingleton<InMemoryUblStore>();
+        services.AddSingleton<UblDiagnosticsWriter>();
         services.AddScoped<IUblStore, FeDianUblStore>();
         services.AddScoped<ITemplateStore, PostgresTemplateStore>();
         services.AddScoped<TemplateCatalogService>();
