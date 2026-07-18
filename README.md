@@ -57,7 +57,7 @@ dotnet run --project src/Btw.TemplatePdf.Api --launch-profile http
 
 API listens on `http://localhost:5299`.
 
-Swagger UI (Development, or `Swagger:Enabled=true`):
+Swagger UI (always on):
 
 - Local: http://localhost:5299/swagger
 - Docker: http://localhost:8080/swagger

@@ -87,19 +87,13 @@ var app = builder.Build();
 
 await DatabaseInitializer.InitializeAsync(app.Services);
 
-var swaggerEnabled = app.Environment.IsDevelopment()
-    || app.Configuration.GetValue("Swagger:Enabled", false);
-
-if (swaggerEnabled)
+app.UseSwagger();
+app.UseSwaggerUI(options =>
 {
-    app.UseSwagger();
-    app.UseSwaggerUI(options =>
-    {
-        options.SwaggerEndpoint("/swagger/v1/swagger.json", "BTW Template PDF v1");
-        options.DocumentTitle = "BTW Template PDF API";
-        options.DisplayRequestDuration();
-    });
-}
+    options.SwaggerEndpoint("/swagger/v1/swagger.json", "BTW Template PDF v1");
+    options.DocumentTitle = "BTW Template PDF API";
+    options.DisplayRequestDuration();
+});
 
 app.UseMiddleware<AppExceptionMiddleware>();
 app.UseCors("Studio");
