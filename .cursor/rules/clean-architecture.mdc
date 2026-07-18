@@ -1,0 +1,42 @@
+---
+description: Clean Architecture estricta para btw-template-pdf
+globs: **/*.{cs,csproj,json,yml,yaml,md}
+alwaysApply: false
+---
+
+# Backend — Clean Architecture (estricta)
+
+Aplica a `btw-template-pdf/`. Sin Event-driven / bus / outbox salvo pedido explícito.
+
+## Capas (dependencias solo hacia adentro)
+
+| Capa | Proyecto | Puede referenciar |
+|---|---|---|
+| Domain | `Btw.TemplatePdf.Domain` | Nada externo (sin EF, HTTP, ASP.NET) |
+| Application | `Btw.TemplatePdf.Application` | Solo Domain |
+| Infrastructure | `Btw.TemplatePdf.Infrastructure` | Domain + Application (implementa puertos) |
+| Api | `Btw.TemplatePdf.Api` | Application (+ DTOs HTTP locales) |
+
+## Obligatorio
+
+- Lógica de negocio en **use cases** de Application, no en controllers ni en Infrastructure.
+- Persistencia, HTTP FE/DIAN, Playwright = **adapters** detrás de puertos del Domain (`ITemplateStore`, `IUblStore`, `IPdfRenderer`, …).
+- Controllers **por recurso** (`Templates`, `Pdf`, `Ubl`): solo HTTP → use case → status code.
+- Código, comentarios y commits en **inglés**. Comunicación con el usuario del chat: español.
+
+## Prohibido
+
+```csharp
+// BAD — Domain o Application con EF/HttpClient/Playwright
+public class GeneratePdfUseCase {
+    public GeneratePdfUseCase(TemplateDbContext db) { }
+}
+
+// GOOD — Application depende de puertos
+public class GeneratePdfByCufeUseCase {
+    public GeneratePdfByCufeUseCase(ITemplateStore templates, IUblStore ubl, IPdfRenderer renderer) { }
+}
+```
+
+- No meter lógica de negocio en `Program.cs` ni en controllers.
+- No saltarse capas “por prisa”.

@@ -1,0 +1,42 @@
+---
+description: API, errores, validación y auth de btw-template-pdf
+globs: **/*.{cs,csproj,json,yml,yaml,md}
+alwaysApply: false
+---
+
+# Backend — API, errores, validación, auth
+
+## HTTP
+
+- Prefijo **`/api/v1/...`**. Breaking change → **`/api/v2`** (no romper v1 en silencio).
+- Controllers `[ApiController]` por recurso.
+- JSON camelCase (como hoy).
+- Errores: **`code`** estable + **`message`** en **inglés** (+ `traceId` cuando aplique).
+
+## Errores
+
+- Flujos de negocio fallidos → **excepciones tipadas** de Application (ej. `PdfGenerationException` con `Code`).
+- Mapear a HTTP en controller o middleware (`ProblemDetails` / body `{ code, message, traceId }`).
+- No tragar excepciones; no devolver 200 con error embebido.
+
+```csharp
+// BAD
+catch (Exception) { return Ok(new { ok = false }); }
+
+// GOOD
+catch (PdfGenerationException ex) {
+    return StatusCode(MapStatus(ex.Code), new { code = ex.Code, message = ex.Message, traceId });
+}
+```
+
+## Validación
+
+- **FluentValidation** en Application (validators por command/request del use case).
+- Invocar validación desde el use case (o pipeline de Application), no solo DataAnnotations.
+- Fallo de validación → excepción tipada / `validation_error` → 400.
+
+## Auth (MVP)
+
+- **Forward-only**: capturar `Authorization: Bearer <fe-jwt>` y reenviarlo a FE/DIAN.
+- No validar firma/issuer del JWT en TemplatePdf (salvo pedido explícito).
+- No inventar un segundo login; el studio aporta el token FE.

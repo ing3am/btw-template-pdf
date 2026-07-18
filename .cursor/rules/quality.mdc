@@ -1,0 +1,33 @@
+---
+description: Tests, async, OpenTelemetry y Docker para btw-template-pdf
+globs: **/*.{cs,csproj,json,yml,yaml,md}
+alwaysApply: false
+---
+
+# Backend — Tests, observabilidad, Docker
+
+## Tests
+
+- Todo cambio en **Application** (use cases) → **unit tests** con mocks de puertos.
+- No merge/entrega de lógica de Application sin tests que cubran éxito + errores tipados relevantes.
+- Infra (Postgres, Playwright, FE HTTP) sin tests obligatorios en MVP; preferir fakes en unit.
+
+## Async y observabilidad
+
+- Todo I/O **async** con **`CancellationToken`** propagado.
+- **OpenTelemetry** (traces/metrics) obligatorio en código/API nuevos del MVP.
+- Logging vía **`ILogger<T>`** estructurado; prohibido `Console.WriteLine` en producción.
+- Incluir correlación (`traceId` / Activity) en respuestas de error cuando sea posible.
+
+## Docker / plataforma
+
+- Builds y recomendaciones Docker: **`--platform linux/amd64`** (mismo criterio que el monorepo).
+- Compose documentado para Postgres local; no asumir arm64 en server.
+
+## Checklist rápido antes de cerrar un cambio
+
+1. ¿La lógica está en Application detrás de puertos?
+2. ¿Hay FluentValidation + excepción tipada mapeada a HTTP?
+3. ¿Hay unit test del use case?
+4. ¿Async + CT + OTel / ILogger?
+5. ¿Sigue siendo `/api/v1` compatible (o es v2 consciente)?
