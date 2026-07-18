@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/Btw.TemplatePdf.Api/Btw.TemplatePdf.Api.csproj" />
+    <Project Path="src/Btw.TemplatePdf.Application/Btw.TemplatePdf.Application.csproj" />
+    <Project Path="src/Btw.TemplatePdf.Domain/Btw.TemplatePdf.Domain.csproj" />
+    <Project Path="src/Btw.TemplatePdf.Infrastructure/Btw.TemplatePdf.Infrastructure.csproj" />
+  </Folder>
+</Solution>

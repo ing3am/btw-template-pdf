@@ -1,0 +1,11 @@
+@Btw.TemplatePdf.Api_HostAddress = http://localhost:5280
+
+### Generate PDF by CUFE (demo NIT)
+POST {{Btw.TemplatePdf.Api_HostAddress}}/api/v1/pdf/by-cufe
+Content-Type: application/json
+
+{
+  "nit": "900000000",
+  "cufe": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
+  "documentType": "factura"
+}
