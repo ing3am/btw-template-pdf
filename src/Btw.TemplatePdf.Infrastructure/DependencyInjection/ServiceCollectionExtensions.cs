@@ -23,9 +23,18 @@ public static class DependencyInjection
         services.AddDbContext<TemplateDbContext>(options =>
             options.UseNpgsql(connectionString));
 
+        services.Configure<FeDianOptions>(configuration.GetSection(FeDianOptions.SectionName));
+
+        services.AddHttpClient<FeDianDocumentClient>((sp, client) =>
+        {
+            var options = sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<FeDianOptions>>().Value;
+            client.Timeout = TimeSpan.FromSeconds(Math.Max(5, options.TimeoutSeconds));
+        });
+
+        services.AddSingleton<InMemoryUblStore>();
+        services.AddScoped<IUblStore, FeDianUblStore>();
         services.AddScoped<ITemplateStore, PostgresTemplateStore>();
         services.AddScoped<TemplateCatalogService>();
-        services.AddSingleton<IUblStore, InMemoryUblStore>();
         services.AddSingleton<IUblToViewModelMapper, StubUblToViewModelMapper>();
         services.AddSingleton<IAssetStore, NullAssetStore>();
         services.AddSingleton<IPdfRenderer, StubPdfRenderer>();

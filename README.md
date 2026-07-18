@@ -40,6 +40,20 @@ API listens on `http://localhost:5299`.
 | PUT | `/api/v1/templates/{id}/draft` |
 | POST | `/api/v1/templates/{id}/publish` |
 
+### UBL by CUFE (GetDocumentFromDian)
+
+Same FE call as ARService `DianDocument/GetUbl` / `FeDocumentClient`:
+
+```http
+GET /api/v1/ubl/by-cufe?cufe={CUFE}&typeDocument=UBL
+```
+
+Upstream:
+`{FeDian:BaseUrl}clientDian/ClientWcfDian/GetDocumentFromDian/{cufe}/{Environment}/false?typeDocument=UBL`
+
+Configure `FeDian` in `appsettings` (`BaseUrl` = URL_FE, `AuthKey` = FeAuthKey).  
+If FE is unreachable and `AllowStubFallback` is true, PDF generation can still use the demo UBL for NIT `900000000`.
+
 Demo PDF request: see `Btw.TemplatePdf.Api.http` (NIT `900000000`).
 
 ## Contract

@@ -1,6 +1,6 @@
-@Btw.TemplatePdf.Api_HostAddress = http://localhost:5280
+@Btw.TemplatePdf.Api_HostAddress = http://localhost:5299
 
-### Generate PDF by CUFE (demo NIT)
+### Generate PDF by CUFE (demo NIT / stub UBL fallback)
 POST {{Btw.TemplatePdf.Api_HostAddress}}/api/v1/pdf/by-cufe
 Content-Type: application/json
 
@@ -9,3 +9,9 @@ Content-Type: application/json
   "cufe": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
   "documentType": "factura"
 }
+
+### Get UBL by CUFE (GetDocumentFromDian via FeDian:BaseUrl)
+GET {{Btw.TemplatePdf.Api_HostAddress}}/api/v1/ubl/by-cufe?cufe={{cufe}}&typeDocument=UBL
+
+### List templates
+GET {{Btw.TemplatePdf.Api_HostAddress}}/api/v1/templates
