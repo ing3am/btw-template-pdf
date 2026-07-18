@@ -3,7 +3,7 @@
     "TemplatePdf": "Host=localhost;Port=5432;Database=btw_template_pdf;Username=postgres;Password=YOUR_PASSWORD"
   },
   "FeDian": {
-    "BaseUrl": "http://192.168.12.70:37128/",
+    "BaseUrl": "https://test-apiconnect.febtw.co/",
     "Environment": "UAT",
     "AuthKey": "YOUR_FE_AUTH_KEY",
     "AllowStubFallback": true,

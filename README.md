@@ -88,8 +88,9 @@ Upstream:
 
 Configure `FeDian` in `appsettings` (`BaseUrl` = URL_FE, `AuthKey` = FeAuthKey).
 
-- Test: `http://192.168.12.70:37128/` (same as netframework `Web.config` / APIService)
-- Prod: `http://192.168.10.55:37128/`
+- Default / Test cloud: `https://test-apiconnect.febtw.co/`
+- Legacy LAN Test: `http://192.168.12.70:37128/` (same as netframework `Web.config` / APIService)
+- Legacy LAN Prod: `http://192.168.10.55:37128/`
 
 If FE is unreachable and `AllowStubFallback` is true, PDF generation can still use the demo UBL for NIT `900000000`.
 
