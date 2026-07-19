@@ -19,8 +19,7 @@ public sealed class StubUblToViewModelMapper : IUblToViewModelMapper
                 ["numero"] = "DEMO-1",
                 ["prefijo"] = "DEMO",
                 ["cufe"] = cufe,
-                ["qrUrl"] =
-                    $"https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey={cufe}",
+                ["qrUrl"] = FeDianOptions.QrCatalogHab + cufe,
                 ["fechaGeneracion"] = "2026-07-18",
                 ["horaGeneracion"] = "12:00:00-05:00",
                 ["autorizacion"] = "00000000000000",

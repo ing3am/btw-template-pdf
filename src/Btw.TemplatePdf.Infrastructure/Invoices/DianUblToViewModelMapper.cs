@@ -3,6 +3,7 @@ using System.Xml.Linq;
 using Btw.TemplatePdf.Domain.Abstractions;
 using Btw.TemplatePdf.Domain.Invoices;
 using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Btw.TemplatePdf.Infrastructure.Invoices;
 
@@ -19,13 +20,16 @@ public sealed class DianUblToViewModelMapper : IUblToViewModelMapper
 
     private readonly ILogger<DianUblToViewModelMapper> _logger;
     private readonly UblDiagnosticsWriter _diagnostics;
+    private readonly IOptionsMonitor<FeDianOptions> _feOptions;
 
     public DianUblToViewModelMapper(
         ILogger<DianUblToViewModelMapper> logger,
-        UblDiagnosticsWriter diagnostics)
+        UblDiagnosticsWriter diagnostics,
+        IOptionsMonitor<FeDianOptions> feOptions)
     {
         _logger = logger;
         _diagnostics = diagnostics;
+        _feOptions = feOptions;
     }
 
     public InvoiceViewModel Map(string nit, string cufe, string ublXml)
@@ -148,8 +152,7 @@ public sealed class DianUblToViewModelMapper : IUblToViewModelMapper
         var emisor = MapParty(supplier, fallbackNit: nit);
         var cliente = MapCustomer(customer);
 
-        var qrUrl =
-            $"https://catalogo-vpfe.dian.gov.co/document/searchqr?documentkey={uuid}";
+        var qrUrl = _feOptions.CurrentValue.BuildQrSearchUrl(uuid ?? string.Empty);
 
         var softwareName = LocalDescendant(root, "SoftwareName");
         var softwareProviderEl = root.Descendants()
