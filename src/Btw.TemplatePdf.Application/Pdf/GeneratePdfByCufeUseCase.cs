@@ -1,5 +1,6 @@
 using Btw.TemplatePdf.Application.Common;
 using Btw.TemplatePdf.Domain.Abstractions;
+using Btw.TemplatePdf.Domain.Common;
 using Btw.TemplatePdf.Domain.Invoices;
 using Btw.TemplatePdf.Domain.Templates;
 using FluentValidation;
@@ -109,7 +110,7 @@ public sealed class GeneratePdfByCufeUseCase
             {
                 throw new PdfGenerationException(
                     AppErrorCodes.TemplateNotFound,
-                    $"No published {request.DocumentType} template for NIT {nit}.");
+                    $"No hay plantilla publicada de {DocumentTypeLabelEs(request.DocumentType)} para el NIT {nit}.");
             }
 
             template = published;
@@ -214,6 +215,15 @@ public sealed class GeneratePdfByCufeUseCase
             ReusedPinnedTemplate: reusedPinned,
             BindingReplaced: bindingReplaced);
     }
+
+    private static string DocumentTypeLabelEs(DocumentType type) => type switch
+    {
+        DocumentType.Factura => "factura",
+        DocumentType.NotaCredito => "nota crédito",
+        DocumentType.NotaDebito => "nota débito",
+        DocumentType.Otro => "documento",
+        _ => type.ToString().ToLowerInvariant()
+    };
 
     private static string NormalizeNit(string? nit)
     {
