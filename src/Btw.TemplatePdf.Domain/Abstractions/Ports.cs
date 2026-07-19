@@ -12,6 +12,13 @@ public interface ITemplateStore
         CancellationToken cancellationToken = default);
 
     /// <summary>
+    /// Loads the live published version of a specific template id.
+    /// </summary>
+    Task<TemplateDefinition?> GetPublishedByIdAsync(
+        Guid templateId,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
     /// Loads a specific template version (published or historical) for pinned invoice renders.
     /// </summary>
     Task<TemplateDefinition?> GetByVersionAsync(
@@ -32,6 +39,13 @@ public interface IInvoiceTemplateBindingStore
         CancellationToken cancellationToken = default);
 
     Task SaveAsync(
+        InvoiceTemplateBinding binding,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Replaces the pinned template for an existing CUFE (or inserts if missing).
+    /// </summary>
+    Task ReplaceAsync(
         InvoiceTemplateBinding binding,
         CancellationToken cancellationToken = default);
 }

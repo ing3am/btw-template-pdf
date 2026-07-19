@@ -68,4 +68,28 @@ public sealed class PostgresInvoiceTemplateBindingStore : IInvoiceTemplateBindin
             _db.ChangeTracker.Clear();
         }
     }
+
+    public async Task ReplaceAsync(
+        InvoiceTemplateBinding binding,
+        CancellationToken cancellationToken = default)
+    {
+        var row = await _db.InvoiceTemplateBindings
+            .FirstOrDefaultAsync(
+                x => x.Cufe == binding.Cufe && x.Nit == binding.Nit,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        if (row is null)
+        {
+            await SaveAsync(binding, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+
+        row.DocumentType = DocumentTypeMapper.ToApi(binding.DocumentType);
+        row.TemplateId = binding.TemplateId;
+        row.TemplateVersionNumber = binding.TemplateVersionNumber;
+        row.BoundAt = binding.BoundAt;
+
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
 }

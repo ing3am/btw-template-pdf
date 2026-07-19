@@ -10,6 +10,8 @@ namespace Btw.TemplatePdf.Application.Pdf;
 /// Application use case: load template + UBL, map, render PDF.
 /// First render for a CUFE pins the template version so later template edits
 /// do not change already-generated invoices (HTML/CSS/logos stay as originally used).
+/// Callers may override with <see cref="GeneratePdfByCufeRequest.TemplateId"/> and
+/// optionally replace the pin via <see cref="GeneratePdfByCufeRequest.ReplaceBinding"/>.
 /// </summary>
 public sealed class GeneratePdfByCufeUseCase
 {
@@ -56,10 +58,27 @@ public sealed class GeneratePdfByCufeUseCase
         await Task.WhenAll(bindingTask, ublTask).ConfigureAwait(false);
 
         var binding = await bindingTask.ConfigureAwait(false);
-        var pinned = binding is not null;
+        var hasPin = binding is not null;
+        var overrideTemplate = request.TemplateId.HasValue;
 
         TemplateDefinition template;
-        if (binding is not null)
+        var reusedPinned = false;
+
+        if (overrideTemplate)
+        {
+            var chosen = await _templates
+                .GetPublishedByIdAsync(request.TemplateId!.Value, cancellationToken)
+                .ConfigureAwait(false);
+            if (chosen is null)
+            {
+                throw new PdfGenerationException(
+                    AppErrorCodes.TemplateNotFound,
+                    $"No published version found for template {request.TemplateId}.");
+            }
+
+            template = chosen;
+        }
+        else if (binding is not null)
         {
             var pinnedTemplate = await _templates
                 .GetByVersionAsync(binding.TemplateId, binding.TemplateVersionNumber, cancellationToken)
@@ -72,6 +91,7 @@ public sealed class GeneratePdfByCufeUseCase
             }
 
             template = pinnedTemplate;
+            reusedPinned = true;
         }
         else
         {
@@ -125,7 +145,8 @@ public sealed class GeneratePdfByCufeUseCase
                 $"PDF render failed: {ex.Message}");
         }
 
-        if (!pinned)
+        var bindingReplaced = false;
+        if (!hasPin)
         {
             await _bindings.SaveAsync(
                     new InvoiceTemplateBinding(
@@ -138,6 +159,20 @@ public sealed class GeneratePdfByCufeUseCase
                     cancellationToken)
                 .ConfigureAwait(false);
         }
+        else if (overrideTemplate && request.ReplaceBinding)
+        {
+            await _bindings.ReplaceAsync(
+                    new InvoiceTemplateBinding(
+                        nit,
+                        cufe,
+                        request.DocumentType,
+                        template.TemplateId,
+                        template.Version,
+                        DateTimeOffset.UtcNow),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            bindingReplaced = true;
+        }
 
         var shortCufe = cufe.Length <= 8 ? cufe : cufe[..8];
         return new GeneratePdfByCufeResponse(
@@ -149,7 +184,8 @@ public sealed class GeneratePdfByCufeUseCase
             ContentType: "application/pdf",
             FileName: $"FE-{nit}-{shortCufe}.pdf",
             PdfBase64: Convert.ToBase64String(pdfBytes),
-            ReusedPinnedTemplate: pinned);
+            ReusedPinnedTemplate: reusedPinned,
+            BindingReplaced: bindingReplaced);
     }
 
     private static string NormalizeNit(string? nit)

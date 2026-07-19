@@ -19,7 +19,12 @@ public sealed class PdfController : ControllerBase
         _getBinding = getBinding;
     }
 
-    public sealed record ByCufeBody(string Nit, string Cufe, string? DocumentType);
+    public sealed record ByCufeBody(
+        string Nit,
+        string Cufe,
+        string? DocumentType,
+        Guid? TemplateId = null,
+        bool? ReplaceBinding = null);
 
     [HttpPost("by-cufe")]
     [ProducesResponseType(typeof(GeneratePdfByCufeResponse), StatusCodes.Status200OK)]
@@ -31,7 +36,12 @@ public sealed class PdfController : ControllerBase
     {
         var documentType = ParseDocumentType(body.DocumentType);
         var result = await _generatePdf.ExecuteAsync(
-            new GeneratePdfByCufeRequest(body.Nit, body.Cufe, documentType),
+            new GeneratePdfByCufeRequest(
+                body.Nit,
+                body.Cufe,
+                documentType,
+                body.TemplateId,
+                body.ReplaceBinding ?? false),
             cancellationToken);
         return Ok(result);
     }

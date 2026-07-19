@@ -7,9 +7,15 @@
 {
   "nit": "900000000",
   "cufe": "000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000",
-  "documentType": "factura"
+  "documentType": "factura",
+  "templateId": null,
+  "replaceBinding": false
 }
 ```
+
+Optional fields:
+- `templateId` — render with that template's **published** version (instead of the pin / default).
+- `replaceBinding` — when the CUFE already has a pin and `templateId` is set, overwrite the pin (`true`) or leave it (`false`, default).
 
 ### Response 200
 ```json
@@ -21,7 +27,9 @@
   "templateVersion": 1,
   "contentType": "application/pdf",
   "fileName": "FE-900000000-00000000.pdf",
-  "pdfBase64": "JVBERi0x…"
+  "pdfBase64": "JVBERi0x…",
+  "reusedPinnedTemplate": false,
+  "bindingReplaced": false
 }
 ```
 

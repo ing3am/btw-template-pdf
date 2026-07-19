@@ -26,6 +26,15 @@ public sealed class InMemoryTemplateStore : ITemplateStore
         return Task.FromResult<TemplateDefinition?>(template);
     }
 
+    public Task<TemplateDefinition?> GetPublishedByIdAsync(
+        Guid templateId,
+        CancellationToken cancellationToken = default)
+    {
+        var match = _store.Values.FirstOrDefault(t =>
+            t.TemplateId == templateId && t.Status == TemplateStatus.Published);
+        return Task.FromResult(match);
+    }
+
     public Task<TemplateDefinition?> GetByVersionAsync(
         Guid templateId,
         int versionNumber,

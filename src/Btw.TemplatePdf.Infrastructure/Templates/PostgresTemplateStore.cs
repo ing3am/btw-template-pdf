@@ -47,6 +47,27 @@ public sealed class PostgresTemplateStore : ITemplateStore
         return MapDefinition(template, version);
     }
 
+    public async Task<TemplateDefinition?> GetPublishedByIdAsync(
+        Guid templateId,
+        CancellationToken cancellationToken = default)
+    {
+        var template = await _db.Templates
+            .AsNoTracking()
+            .Include(t => t.Versions)
+            .FirstOrDefaultAsync(t => t.Id == templateId, cancellationToken)
+            .ConfigureAwait(false);
+
+        if (template is null)
+            return null;
+
+        var version = template.Versions
+            .Where(v => v.IsPublished)
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+
+        return version is null ? null : MapDefinition(template, version);
+    }
+
     public async Task<TemplateDefinition?> GetByVersionAsync(
         Guid templateId,
         int versionNumber,

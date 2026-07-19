@@ -193,4 +193,108 @@ public sealed class GeneratePdfByCufeUseCaseTests
 
         Assert.Equal(AppErrorCodes.MappingError, ex.Code);
     }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenOverrideWithoutReplace_DoesNotTouchBinding()
+    {
+        var pinnedId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var otherId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var other = new TemplateDefinition
+        {
+            TemplateId = otherId,
+            Nit = "900000000",
+            DocumentType = DocumentType.Factura,
+            Version = 3,
+            BlocksJson = "[]",
+            Html = "<p>new</p>",
+            Css = ""
+        };
+        var invoice = new InvoiceViewModel
+        {
+            Nit = "900000000",
+            Cufe = "CUFE1",
+            Data = new Dictionary<string, object?>()
+        };
+
+        _bindings.FindAsync("900000000", "CUFE1", Arg.Any<CancellationToken>())
+            .Returns(new InvoiceTemplateBinding(
+                "900000000",
+                "CUFE1",
+                DocumentType.Factura,
+                pinnedId,
+                1,
+                DateTimeOffset.UtcNow));
+        _templates.GetPublishedByIdAsync(otherId, Arg.Any<CancellationToken>())
+            .Returns(other);
+        _ubl.GetUblXmlAsync("900000000", "CUFE1", Arg.Any<CancellationToken>())
+            .Returns("<Invoice/>");
+        _mapper.Map("900000000", "CUFE1", "<Invoice/>").Returns(invoice);
+        _assets.ResolveAsync(Arg.Any<IEnumerable<TemplateAssetRef>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<string, byte[]>());
+        _renderer.RenderAsync(other, invoice, Arg.Any<IReadOnlyDictionary<string, byte[]>>(), Arg.Any<CancellationToken>())
+            .Returns("%PDF-1.4"u8.ToArray());
+
+        var result = await CreateSut().ExecuteAsync(
+            new GeneratePdfByCufeRequest("900000000", "CUFE1", TemplateId: otherId, ReplaceBinding: false));
+
+        Assert.False(result.ReusedPinnedTemplate);
+        Assert.False(result.BindingReplaced);
+        Assert.Equal(otherId, result.TemplateId);
+        await _bindings.DidNotReceive().ReplaceAsync(
+            Arg.Any<InvoiceTemplateBinding>(),
+            Arg.Any<CancellationToken>());
+        await _bindings.DidNotReceive().SaveAsync(
+            Arg.Any<InvoiceTemplateBinding>(),
+            Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_WhenOverrideWithReplace_UpdatesBinding()
+    {
+        var pinnedId = Guid.Parse("11111111-1111-1111-1111-111111111111");
+        var otherId = Guid.Parse("22222222-2222-2222-2222-222222222222");
+        var other = new TemplateDefinition
+        {
+            TemplateId = otherId,
+            Nit = "900000000",
+            DocumentType = DocumentType.Factura,
+            Version = 3,
+            BlocksJson = "[]",
+            Html = "<p>new</p>",
+            Css = ""
+        };
+        var invoice = new InvoiceViewModel
+        {
+            Nit = "900000000",
+            Cufe = "CUFE1",
+            Data = new Dictionary<string, object?>()
+        };
+
+        _bindings.FindAsync("900000000", "CUFE1", Arg.Any<CancellationToken>())
+            .Returns(new InvoiceTemplateBinding(
+                "900000000",
+                "CUFE1",
+                DocumentType.Factura,
+                pinnedId,
+                1,
+                DateTimeOffset.UtcNow));
+        _templates.GetPublishedByIdAsync(otherId, Arg.Any<CancellationToken>())
+            .Returns(other);
+        _ubl.GetUblXmlAsync("900000000", "CUFE1", Arg.Any<CancellationToken>())
+            .Returns("<Invoice/>");
+        _mapper.Map("900000000", "CUFE1", "<Invoice/>").Returns(invoice);
+        _assets.ResolveAsync(Arg.Any<IEnumerable<TemplateAssetRef>>(), Arg.Any<CancellationToken>())
+            .Returns(new Dictionary<string, byte[]>());
+        _renderer.RenderAsync(other, invoice, Arg.Any<IReadOnlyDictionary<string, byte[]>>(), Arg.Any<CancellationToken>())
+            .Returns("%PDF-1.4"u8.ToArray());
+
+        var result = await CreateSut().ExecuteAsync(
+            new GeneratePdfByCufeRequest("900000000", "CUFE1", TemplateId: otherId, ReplaceBinding: true));
+
+        Assert.True(result.BindingReplaced);
+        await _bindings.Received(1).ReplaceAsync(
+            Arg.Is<InvoiceTemplateBinding>(b =>
+                b.TemplateId == otherId && b.TemplateVersionNumber == 3),
+            Arg.Any<CancellationToken>());
+    }
 }
