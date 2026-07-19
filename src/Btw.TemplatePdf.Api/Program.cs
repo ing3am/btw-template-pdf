@@ -33,6 +33,13 @@ builder.Services.AddSwaggerGen(options =>
             "Template catalog + PDF-by-CUFE. Send the studio FE JWT as Authorization: Bearer {token}."
     });
 
+    // Binary uploads in OpenAPI 3 / Swashbuckle 10
+    options.MapType<IFormFile>(() => new OpenApiSchema
+    {
+        Type = JsonSchemaType.String,
+        Format = "binary"
+    });
+
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Name = "Authorization",
