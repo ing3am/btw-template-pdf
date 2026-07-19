@@ -1,4 +1,3 @@
-using Btw.TemplatePdf.Infrastructure.Persistence;
 using Btw.TemplatePdf.Infrastructure.Templates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -94,7 +93,20 @@ public static class DatabaseInitializer
         template.CurrentVersionNumber = hasDraft
             ? tip!.VersionNumber
             : published?.VersionNumber ?? tip?.VersionNumber ?? 1;
-        template.Status = published is null ? "draft" : "published";
+
+        // Preserve soft-archive; do not resurrect archived templates via version sync.
+        if (TemplateStatuses.IsArchived(template.Status))
+            return;
+
+        if (published is not null)
+        {
+            template.Status = TemplateStatuses.Published;
+            return;
+        }
+
+        // Formerly live templates keep a distinct status after another template takes over.
+        var hasUsed = template.Versions.Any(v => VersionStatuses.IsUsed(v.Status));
+        template.Status = hasUsed ? TemplateStatuses.Used : TemplateStatuses.Draft;
     }
 
     private static async Task EnsureInvoiceTemplateBindingsTableAsync(TemplateDbContext db, CancellationToken ct)
