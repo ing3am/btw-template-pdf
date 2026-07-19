@@ -27,6 +27,8 @@ public sealed class PostgresTemplateStore : ITemplateStore
         // Never call VersionStatuses.IsPublished() inside IQueryable — EF cannot translate it
         // (InvalidOperationException → 500 on POST /pdf/by-cufe without templateId).
         // Filter published versions in memory after materializing by nit + documentType.
+        // Also skip archived templates in memory (Status filter stays out of IQueryable
+        // shape guarded by PostgresTemplateStoreEfTranslatabilityTests).
         var candidates = await _db.Templates
             .AsNoTracking()
             .Include(t => t.Versions)
@@ -36,6 +38,9 @@ public sealed class PostgresTemplateStore : ITemplateStore
 
         foreach (var template in candidates)
         {
+            if (template.Status == TemplateStatuses.Archived)
+                continue;
+
             var version = template.Versions
                 .Where(v => v.IsPublished || v.Status == VersionStatuses.Published)
                 .OrderByDescending(v => v.VersionNumber)
@@ -58,7 +63,7 @@ public sealed class PostgresTemplateStore : ITemplateStore
             .FirstOrDefaultAsync(t => t.Id == templateId, cancellationToken)
             .ConfigureAwait(false);
 
-        if (template is null)
+        if (template is null || template.Status == TemplateStatuses.Archived)
             return null;
 
         var version = template.Versions
