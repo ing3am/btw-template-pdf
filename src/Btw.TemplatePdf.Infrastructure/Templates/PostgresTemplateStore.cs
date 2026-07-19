@@ -23,13 +23,13 @@ public sealed class PostgresTemplateStore : ITemplateStore
         CancellationToken cancellationToken = default)
     {
         var docType = DocumentTypeMapper.ToApi(documentType);
-        // Prefer the most recently updated published template for this NIT + type.
+        // Live PDF uses the published version even while a draft tip is being edited.
         var template = await _db.Templates
             .AsNoTracking()
             .Include(t => t.Versions)
             .Where(t => t.Nit == nit
                         && t.DocumentType == docType
-                        && t.Status == "published")
+                        && t.Versions.Any(v => v.IsPublished))
             .OrderByDescending(t => t.UpdatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 

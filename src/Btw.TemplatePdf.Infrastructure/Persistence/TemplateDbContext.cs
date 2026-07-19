@@ -45,6 +45,8 @@ public sealed class TemplateDbContext : DbContext
             entity.Property(x => x.BlocksJson).HasColumnType("text");
             entity.Property(x => x.PageJson).HasColumnType("text");
             entity.Property(x => x.AssetsJson).HasColumnType("text");
+            entity.Property(x => x.Status).HasMaxLength(20).IsRequired();
+            entity.HasIndex(x => new { x.TemplateId, x.Status });
         });
 
         modelBuilder.Entity<InvoiceTemplateBindingEntity>(entity =>

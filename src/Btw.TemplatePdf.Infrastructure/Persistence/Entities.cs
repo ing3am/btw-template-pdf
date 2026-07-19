@@ -30,6 +30,9 @@ public sealed class TemplateVersionEntity
     /// <summary>JSON array of embedded studio assets ({ id, name, mime, dataUrl }).</summary>
     public string AssetsJson { get; set; } = "[]";
     public DateTimeOffset CreatedAt { get; set; }
+    /// <summary>draft | published | used</summary>
+    public string Status { get; set; } = "draft";
+    /// <summary>True when <see cref="Status"/> is published (kept for queries / PDF).</summary>
     public bool IsPublished { get; set; }
 }
 

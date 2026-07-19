@@ -1,4 +1,5 @@
 using Btw.TemplatePdf.Infrastructure.Persistence;
+using Btw.TemplatePdf.Infrastructure.Templates;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
@@ -15,49 +16,10 @@ public static class DatabaseInitializer
 
         await db.Database.EnsureCreatedAsync(ct);
         await EnsureAssetsJsonColumnAsync(db, ct);
+        await EnsureVersionStatusColumnAsync(db, ct);
         await EnsureInvoiceTemplateBindingsTableAsync(db, ct);
         await EnsureBrandAssetsTableAsync(db, ct);
         logger.LogInformation("PostgreSQL schema ensured for TemplatePdf.");
-
-        if (await db.Templates.AnyAsync(ct))
-            return;
-
-        var now = DateTimeOffset.UtcNow;
-        var templateId = Guid.Parse("11111111-1111-1111-1111-111111111111");
-        var versionId = Guid.Parse("22222222-2222-2222-2222-222222222222");
-
-        db.Templates.Add(new TemplateEntity
-        {
-            Id = templateId,
-            Name = "Demo FE (API)",
-            DocumentType = "factura",
-            Status = "published",
-            CurrentVersionNumber = 1,
-            Nit = "900000000",
-            SectorSalud = false,
-            UpdatedAt = now,
-            Versions =
-            {
-                new TemplateVersionEntity
-                {
-                    Id = versionId,
-                    TemplateId = templateId,
-                    VersionNumber = 1,
-                    Html = "<div>Demo</div>",
-                    Css = "",
-                    SchemaJson = "{}",
-                    SampleDataJson = "{}",
-                    BlocksJson = "[]",
-                    PageJson = "{}",
-                    AssetsJson = "[]",
-                    CreatedAt = now,
-                    IsPublished = true
-                }
-            }
-        });
-
-        await db.SaveChangesAsync(ct);
-        logger.LogInformation("Seeded demo template for NIT 900000000.");
     }
 
     private static async Task EnsureAssetsJsonColumnAsync(TemplateDbContext db, CancellationToken ct)
@@ -68,6 +30,68 @@ public static class DatabaseInitializer
             ADD COLUMN IF NOT EXISTS "AssetsJson" text NOT NULL DEFAULT '[]';
             """,
             ct);
+    }
+
+    private static async Task EnsureVersionStatusColumnAsync(TemplateDbContext db, CancellationToken ct)
+    {
+        await db.Database.ExecuteSqlRawAsync(
+            """
+            ALTER TABLE template_versions
+            ADD COLUMN IF NOT EXISTS "Status" character varying(20) NOT NULL DEFAULT 'draft';
+            """,
+            ct);
+
+        // Backfill: published → published; older unpublished snapshots → used; tip unpublished → draft.
+        var templates = await db.Templates
+            .Include(t => t.Versions)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        foreach (var template in templates)
+        {
+            var published = template.Versions
+                .Where(v => v.IsPublished)
+                .OrderByDescending(v => v.VersionNumber)
+                .FirstOrDefault();
+            var publishedNum = published?.VersionNumber ?? 0;
+
+            foreach (var version in template.Versions)
+            {
+                if (version.IsPublished ||
+                    string.Equals(version.Status, VersionStatuses.Published, StringComparison.OrdinalIgnoreCase))
+                {
+                    version.Status = VersionStatuses.Published;
+                    version.IsPublished = true;
+                }
+                else if (publishedNum > 0 && version.VersionNumber < publishedNum)
+                {
+                    version.Status = VersionStatuses.Used;
+                    version.IsPublished = false;
+                }
+                else
+                {
+                    version.Status = VersionStatuses.Draft;
+                    version.IsPublished = false;
+                }
+            }
+
+            SyncTemplateFlags(template);
+        }
+
+        if (templates.Count > 0)
+            await db.SaveChangesAsync(ct).ConfigureAwait(false);
+    }
+
+    internal static void SyncTemplateFlags(TemplateEntity template)
+    {
+        var tip = template.Versions.OrderByDescending(v => v.VersionNumber).FirstOrDefault();
+        var published = template.Versions
+            .Where(v => VersionStatuses.IsPublished(v.Status) || v.IsPublished)
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+
+        template.CurrentVersionNumber = tip?.VersionNumber ?? 1;
+        template.Status = published is null ? "draft" : "published";
     }
 
     private static async Task EnsureInvoiceTemplateBindingsTableAsync(TemplateDbContext db, CancellationToken ct)

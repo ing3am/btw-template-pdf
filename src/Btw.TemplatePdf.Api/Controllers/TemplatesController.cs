@@ -11,17 +11,20 @@ public sealed class TemplatesController : ControllerBase
     private readonly GetTemplateUseCase _get;
     private readonly CreateTemplateUseCase _create;
     private readonly SaveDraftUseCase _saveDraft;
+    private readonly DeleteDraftUseCase _deleteDraft;
 
     public TemplatesController(
         ListTemplatesUseCase list,
         GetTemplateUseCase get,
         CreateTemplateUseCase create,
-        SaveDraftUseCase saveDraft)
+        SaveDraftUseCase saveDraft,
+        DeleteDraftUseCase deleteDraft)
     {
         _list = list;
         _get = get;
         _create = create;
         _saveDraft = saveDraft;
+        _deleteDraft = deleteDraft;
     }
 
     [HttpGet]
@@ -47,7 +50,7 @@ public sealed class TemplatesController : ControllerBase
 
     /// <summary>
     /// Save draft content, or publish when body.status is <c>published</c>
-    /// (content fields optional on publish — republishes the current tip).
+    /// (content fields optional on publish — promotes the current draft tip).
     /// </summary>
     [HttpPut("{id:guid}/draft")]
     public async Task<ActionResult<TemplateVersionDto>> SaveDraft(
@@ -56,5 +59,13 @@ public sealed class TemplatesController : ControllerBase
         CancellationToken ct)
     {
         return Ok(await _saveDraft.ExecuteAsync(id, request, ct));
+    }
+
+    /// <summary>Discard the tip draft version (only when tip status is draft).</summary>
+    [HttpDelete("{id:guid}/draft")]
+    public async Task<IActionResult> DeleteDraft(Guid id, CancellationToken ct)
+    {
+        await _deleteDraft.ExecuteAsync(id, ct);
+        return NoContent();
     }
 }

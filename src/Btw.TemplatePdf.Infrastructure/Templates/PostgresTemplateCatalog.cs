@@ -16,20 +16,14 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
 
     public async Task<IReadOnlyList<TemplateDto>> ListAsync(CancellationToken cancellationToken = default)
     {
-        return await _db.Templates
+        var templates = await _db.Templates
             .AsNoTracking()
+            .Include(t => t.Versions)
             .OrderByDescending(t => t.UpdatedAt)
-            .Select(t => new TemplateDto(
-                t.Id,
-                t.Name,
-                t.DocumentType,
-                t.Status,
-                t.CurrentVersionNumber,
-                t.UpdatedAt,
-                t.Nit,
-                t.SectorSalud))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        return templates.Select(MapTemplate).ToList();
     }
 
     public async Task<TemplateBundleDto?> GetBundleAsync(Guid id, CancellationToken cancellationToken = default)
@@ -81,6 +75,7 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
                             cancellationToken)
                         .ConfigureAwait(false),
                     CreatedAt = now,
+                    Status = VersionStatuses.Draft,
                     IsPublished = false
                 }
             }
@@ -102,69 +97,72 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
             .ConfigureAwait(false)
             ?? throw new KeyNotFoundException($"Template '{id}' was not found.");
 
-        var current = template.Versions
-            .OrderByDescending(v => v.VersionNumber)
-            .First();
-
+        var tip = Tip(template);
         var now = DateTimeOffset.UtcNow;
+
         if (request.SectorSalud is bool sector)
             template.SectorSalud = sector;
         if (!string.IsNullOrWhiteSpace(request.Nit))
             template.Nit = request.Nit.Trim();
 
-        var html = request.Html ?? current.Html;
-        var css = request.Css ?? current.Css;
-        var schemaJson = request.SchemaJson ?? current.SchemaJson;
-        var sampleDataJson = request.SampleDataJson ?? current.SampleDataJson;
-        var blocksJson = request.BlocksJson ?? current.BlocksJson;
-        var assetsJson = await BrandAssetHydrator.HydrateAssetsJsonAsync(
-                _db,
-                request.AssetsJson,
-                current.AssetsJson,
-                cancellationToken)
-            .ConfigureAwait(false);
-
-        if (current.IsPublished || template.Status == "published")
+        // Published / used tips are immutable — fork a new draft.
+        if (!VersionStatuses.IsDraft(tip.Status))
         {
+            var assetsJson = await BrandAssetHydrator.HydrateAssetsJsonAsync(
+                    _db,
+                    request.AssetsJson,
+                    tip.AssetsJson,
+                    cancellationToken)
+                .ConfigureAwait(false);
+
             var draft = new TemplateVersionEntity
             {
                 Id = Guid.NewGuid(),
                 TemplateId = template.Id,
-                VersionNumber = current.VersionNumber + 1,
-                Html = html,
-                Css = css,
-                SchemaJson = schemaJson,
-                SampleDataJson = sampleDataJson,
-                BlocksJson = blocksJson,
-                PageJson = request.PageJson ?? current.PageJson,
+                VersionNumber = tip.VersionNumber + 1,
+                Html = request.Html ?? tip.Html,
+                Css = request.Css ?? tip.Css,
+                SchemaJson = request.SchemaJson ?? tip.SchemaJson,
+                SampleDataJson = request.SampleDataJson ?? tip.SampleDataJson,
+                BlocksJson = request.BlocksJson ?? tip.BlocksJson,
+                PageJson = request.PageJson ?? tip.PageJson,
                 AssetsJson = assetsJson,
                 CreatedAt = now,
+                Status = VersionStatuses.Draft,
                 IsPublished = false
             };
             template.Versions.Add(draft);
             _db.TemplateVersions.Add(draft);
-            template.Status = "draft";
             template.UpdatedAt = now;
+            DatabaseInitializer.SyncTemplateFlags(template);
             await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
             return MapVersion(draft);
         }
 
-        current.Html = html;
-        current.Css = css;
-        current.SchemaJson = schemaJson;
-        current.SampleDataJson = sampleDataJson;
-        current.BlocksJson = blocksJson;
+        // Upsert existing draft tip (same version number).
+        var draftAssets = await BrandAssetHydrator.HydrateAssetsJsonAsync(
+                _db,
+                request.AssetsJson,
+                tip.AssetsJson,
+                cancellationToken)
+            .ConfigureAwait(false);
+
+        tip.Html = request.Html ?? tip.Html;
+        tip.Css = request.Css ?? tip.Css;
+        tip.SchemaJson = request.SchemaJson ?? tip.SchemaJson;
+        tip.SampleDataJson = request.SampleDataJson ?? tip.SampleDataJson;
+        tip.BlocksJson = request.BlocksJson ?? tip.BlocksJson;
         if (request.PageJson is not null)
-            current.PageJson = request.PageJson;
-        current.AssetsJson = assetsJson;
-        current.CreatedAt = now;
-        current.IsPublished = false;
+            tip.PageJson = request.PageJson;
+        tip.AssetsJson = draftAssets;
+        tip.CreatedAt = now;
+        tip.Status = VersionStatuses.Draft;
+        tip.IsPublished = false;
 
-        template.Status = "draft";
         template.UpdatedAt = now;
-
+        DatabaseInitializer.SyncTemplateFlags(template);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return MapVersion(current);
+        return MapVersion(tip);
     }
 
     public async Task<TemplateVersionDto> PublishAsync(Guid id, CancellationToken cancellationToken = default)
@@ -175,50 +173,63 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
             .ConfigureAwait(false)
             ?? throw new KeyNotFoundException($"Template '{id}' was not found.");
 
-        var current = template.Versions
-            .OrderByDescending(v => v.VersionNumber)
-            .First();
-
+        var tip = Tip(template);
         var now = DateTimeOffset.UtcNow;
 
-        if (current.IsPublished)
+        // Already on a published tip — no empty clone.
+        if (VersionStatuses.IsPublished(tip.Status))
         {
-            var next = new TemplateVersionEntity
-            {
-                Id = Guid.NewGuid(),
-                TemplateId = template.Id,
-                VersionNumber = current.VersionNumber + 1,
-                Html = current.Html,
-                Css = current.Css,
-                SchemaJson = current.SchemaJson,
-                SampleDataJson = current.SampleDataJson,
-                BlocksJson = current.BlocksJson,
-                PageJson = current.PageJson,
-                AssetsJson = current.AssetsJson,
-                CreatedAt = now,
-                IsPublished = true
-            };
-            foreach (var version in template.Versions)
-                version.IsPublished = false;
-            template.Versions.Add(next);
-            _db.TemplateVersions.Add(next);
-            template.CurrentVersionNumber = next.VersionNumber;
-            template.Status = "published";
-            template.UpdatedAt = now;
+            DatabaseInitializer.SyncTemplateFlags(template);
             await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-            return MapVersion(next);
+            return MapVersion(tip);
         }
 
+        if (VersionStatuses.IsUsed(tip.Status))
+            throw new InvalidOperationException("Cannot publish a used version. Save a new draft first.");
+
         foreach (var version in template.Versions)
-            version.IsPublished = false;
-        current.IsPublished = true;
-        current.CreatedAt = now;
-        template.Status = "published";
-        template.CurrentVersionNumber = current.VersionNumber;
+        {
+            if (VersionStatuses.IsPublished(version.Status) || version.IsPublished)
+            {
+                version.Status = VersionStatuses.Used;
+                version.IsPublished = false;
+            }
+        }
+
+        tip.Status = VersionStatuses.Published;
+        tip.IsPublished = true;
+        tip.CreatedAt = now;
         template.UpdatedAt = now;
+        DatabaseInitializer.SyncTemplateFlags(template);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return MapVersion(current);
+        return MapVersion(tip);
     }
+
+    public async Task DeleteDraftAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        var template = await _db.Templates
+            .Include(t => t.Versions)
+            .FirstOrDefaultAsync(t => t.Id == id, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new KeyNotFoundException($"Template '{id}' was not found.");
+
+        var tip = Tip(template);
+        if (!VersionStatuses.IsDraft(tip.Status))
+            throw new InvalidOperationException("Only a draft tip can be discarded.");
+
+        if (template.Versions.Count == 1)
+            throw new InvalidOperationException(
+                "Cannot discard the only version. Delete the template instead, or publish first.");
+
+        template.Versions.Remove(tip);
+        _db.TemplateVersions.Remove(tip);
+        template.UpdatedAt = DateTimeOffset.UtcNow;
+        DatabaseInitializer.SyncTemplateFlags(template);
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    private static TemplateVersionEntity Tip(TemplateEntity template) =>
+        template.Versions.OrderByDescending(v => v.VersionNumber).First();
 
     private static TemplateBundleDto MapBundle(TemplateEntity template) =>
         new(
@@ -228,11 +239,36 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
                 .Select(MapVersion)
                 .ToList());
 
-    private static TemplateDto MapTemplate(TemplateEntity t) =>
-        new(t.Id, t.Name, t.DocumentType, t.Status, t.CurrentVersionNumber, t.UpdatedAt, t.Nit, t.SectorSalud);
+    private static TemplateDto MapTemplate(TemplateEntity t)
+    {
+        var tip = t.Versions.Count == 0
+            ? null
+            : t.Versions.OrderByDescending(v => v.VersionNumber).First();
+        var published = t.Versions
+            .Where(v => VersionStatuses.IsPublished(v.Status) || v.IsPublished)
+            .OrderByDescending(v => v.VersionNumber)
+            .FirstOrDefault();
+        var hasDraft = tip is not null && VersionStatuses.IsDraft(tip.Status);
 
-    private static TemplateVersionDto MapVersion(TemplateVersionEntity v) =>
-        new(
+        return new TemplateDto(
+            t.Id,
+            t.Name,
+            t.DocumentType,
+            published is null ? "draft" : "published",
+            tip?.VersionNumber ?? t.CurrentVersionNumber,
+            t.UpdatedAt,
+            t.Nit,
+            t.SectorSalud,
+            published?.VersionNumber ?? 0,
+            hasDraft);
+    }
+
+    private static TemplateVersionDto MapVersion(TemplateVersionEntity v)
+    {
+        var status = string.IsNullOrWhiteSpace(v.Status)
+            ? (v.IsPublished ? VersionStatuses.Published : VersionStatuses.Draft)
+            : v.Status;
+        return new(
             v.Id,
             v.TemplateId,
             v.VersionNumber,
@@ -242,6 +278,8 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
             v.SampleDataJson,
             v.BlocksJson,
             v.CreatedAt,
-            v.IsPublished,
-            BrandAssetHydrator.StripDataUrls(v.AssetsJson));
+            VersionStatuses.IsPublished(status),
+            BrandAssetHydrator.StripDataUrls(v.AssetsJson),
+            status);
+    }
 }

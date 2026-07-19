@@ -88,6 +88,10 @@ public sealed class SaveDraftUseCase
                 AppErrorCodes.TemplateNotFound,
                 $"Template '{id}' was not found.");
         }
+        catch (InvalidOperationException ex)
+        {
+            throw new AppException(AppErrorCodes.ValidationError, ex.Message);
+        }
     }
 
     internal static string NormalizeStatus(string? status)
@@ -98,5 +102,30 @@ public sealed class SaveDraftUseCase
             : throw new AppException(
                 AppErrorCodes.ValidationError,
                 "status must be 'draft' or 'published'.");
+    }
+}
+
+public sealed class DeleteDraftUseCase
+{
+    private readonly ITemplateCatalog _catalog;
+
+    public DeleteDraftUseCase(ITemplateCatalog catalog) => _catalog = catalog;
+
+    public async Task ExecuteAsync(Guid id, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            await _catalog.DeleteDraftAsync(id, cancellationToken).ConfigureAwait(false);
+        }
+        catch (KeyNotFoundException)
+        {
+            throw new AppException(
+                AppErrorCodes.TemplateNotFound,
+                $"Template '{id}' was not found.");
+        }
+        catch (InvalidOperationException ex)
+        {
+            throw new AppException(AppErrorCodes.ValidationError, ex.Message);
+        }
     }
 }

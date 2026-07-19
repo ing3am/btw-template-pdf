@@ -8,7 +8,9 @@ public sealed record TemplateDto(
     int CurrentVersionNumber,
     DateTimeOffset UpdatedAt,
     string Nit,
-    bool SectorSalud);
+    bool SectorSalud,
+    int PublishedVersionNumber = 0,
+    bool HasDraft = false);
 
 public sealed record TemplateVersionDto(
     Guid Id,
@@ -21,7 +23,8 @@ public sealed record TemplateVersionDto(
     string BlocksJson,
     DateTimeOffset CreatedAt,
     bool IsPublished,
-    string AssetsJson = "[]");
+    string AssetsJson = "[]",
+    string Status = "draft");
 
 public sealed record TemplateBundleDto(TemplateDto Template, IReadOnlyList<TemplateVersionDto> Versions);
 
@@ -69,4 +72,6 @@ public interface ITemplateCatalog
         CancellationToken cancellationToken = default);
 
     Task<TemplateVersionDto> PublishAsync(Guid id, CancellationToken cancellationToken = default);
+
+    Task DeleteDraftAsync(Guid id, CancellationToken cancellationToken = default);
 }
