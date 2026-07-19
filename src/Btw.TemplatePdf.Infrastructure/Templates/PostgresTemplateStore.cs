@@ -27,9 +27,10 @@ public sealed class PostgresTemplateStore : ITemplateStore
         var template = await _db.Templates
             .AsNoTracking()
             .Include(t => t.Versions)
+            // VersionStatuses.IsPublished() is not EF-translatable (causes 500 on by-cufe).
             .Where(t => t.Nit == nit
                         && t.DocumentType == docType
-                        && t.Versions.Any(v => VersionStatuses.IsPublished(v.Status) || v.IsPublished))
+                        && t.Versions.Any(v => v.IsPublished || v.Status == VersionStatuses.Published))
             .OrderByDescending(t => t.UpdatedAt)
             .FirstOrDefaultAsync(cancellationToken);
 
