@@ -30,16 +30,23 @@ public sealed class TemplatesController : ControllerBase
         _rollback = rollback;
     }
 
+    /// <summary>List templates for a company NIT.</summary>
     [HttpGet]
-    public async Task<ActionResult<IReadOnlyList<TemplateDto>>> List(CancellationToken ct)
+    public async Task<ActionResult<IReadOnlyList<TemplateDto>>> List(
+        [FromQuery] string nit,
+        CancellationToken ct)
     {
-        return Ok(await _list.ExecuteAsync(ct));
+        return Ok(await _list.ExecuteAsync(nit, ct));
     }
 
+    /// <summary>Get a template bundle scoped to the company NIT.</summary>
     [HttpGet("{id:guid}")]
-    public async Task<ActionResult<TemplateBundleDto>> Get(Guid id, CancellationToken ct)
+    public async Task<ActionResult<TemplateBundleDto>> Get(
+        Guid id,
+        [FromQuery] string nit,
+        CancellationToken ct)
     {
-        return Ok(await _get.ExecuteAsync(id, ct));
+        return Ok(await _get.ExecuteAsync(id, nit, ct));
     }
 
     [HttpPost]
@@ -48,27 +55,32 @@ public sealed class TemplatesController : ControllerBase
         CancellationToken ct)
     {
         var created = await _create.ExecuteAsync(request, ct);
-        return CreatedAtAction(nameof(Get), new { id = created.Id }, created);
+        return CreatedAtAction(nameof(Get), new { id = created.Id, nit = created.Nit }, created);
     }
 
     /// <summary>
     /// Save draft content, or publish when body.status is <c>published</c>
     /// (content fields optional on publish — promotes the current draft tip).
+    /// Requires <c>nit</c> matching the template owner.
     /// </summary>
     [HttpPut("{id:guid}/draft")]
     public async Task<ActionResult<TemplateVersionDto>> SaveDraft(
         Guid id,
+        [FromQuery] string nit,
         [FromBody] SaveDraftRequest request,
         CancellationToken ct)
     {
-        return Ok(await _saveDraft.ExecuteAsync(id, request, ct));
+        return Ok(await _saveDraft.ExecuteAsync(id, request, nit, ct));
     }
 
     /// <summary>Discard the tip draft version (only when tip status is draft).</summary>
     [HttpDelete("{id:guid}/draft")]
-    public async Task<IActionResult> DeleteDraft(Guid id, CancellationToken ct)
+    public async Task<IActionResult> DeleteDraft(
+        Guid id,
+        [FromQuery] string nit,
+        CancellationToken ct)
     {
-        await _deleteDraft.ExecuteAsync(id, ct);
+        await _deleteDraft.ExecuteAsync(id, nit, ct);
         return NoContent();
     }
 
@@ -80,8 +92,9 @@ public sealed class TemplatesController : ControllerBase
     public async Task<ActionResult<TemplateVersionDto>> Rollback(
         Guid id,
         int versionNumber,
+        [FromQuery] string nit,
         CancellationToken ct)
     {
-        return Ok(await _rollback.ExecuteAsync(id, versionNumber, ct));
+        return Ok(await _rollback.ExecuteAsync(id, versionNumber, nit, ct));
     }
 }

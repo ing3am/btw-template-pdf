@@ -14,11 +14,14 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
         _db = db;
     }
 
-    public async Task<IReadOnlyList<TemplateDto>> ListAsync(CancellationToken cancellationToken = default)
+    public async Task<IReadOnlyList<TemplateDto>> ListAsync(
+        string nit,
+        CancellationToken cancellationToken = default)
     {
         var templates = await _db.Templates
             .AsNoTracking()
             .Include(t => t.Versions)
+            .Where(t => t.Nit == nit)
             .OrderByDescending(t => t.UpdatedAt)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -52,7 +55,7 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
             DocumentType = string.IsNullOrWhiteSpace(request.DocumentType) ? "factura" : request.DocumentType,
             Status = "draft",
             CurrentVersionNumber = 1,
-            Nit = request.Nit.Trim(),
+            Nit = request.Nit.Trim(), // already normalized by CreateTemplateUseCase
             SectorSalud = request.SectorSalud,
             UpdatedAt = now,
             Versions =
@@ -103,7 +106,7 @@ public sealed class PostgresTemplateCatalog : ITemplateCatalog
         if (request.SectorSalud is bool sector)
             template.SectorSalud = sector;
         if (!string.IsNullOrWhiteSpace(request.Nit))
-            template.Nit = request.Nit.Trim();
+            template.Nit = request.Nit.Trim(); // digits-only when provided by SaveDraftUseCase
 
         // Published / used tips are immutable — fork a new draft from the live published
         // version when the tip is an older "used" snapshot (e.g. after rollback).

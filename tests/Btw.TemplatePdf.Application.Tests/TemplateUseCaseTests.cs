@@ -42,7 +42,7 @@ public sealed class TemplateUseCaseTests
         var request = new CreateTemplateRequest(
             Name: "Demo",
             DocumentType: "factura",
-            Nit: "900000000");
+            Nit: "900.000.000-1");
         var expected = new TemplateDto(
             Guid.NewGuid(),
             "Demo",
@@ -50,9 +50,12 @@ public sealed class TemplateUseCaseTests
             "draft",
             1,
             DateTimeOffset.UtcNow,
-            "900000000",
+            "9000000001",
             false);
-        _catalog.CreateAsync(request, Arg.Any<CancellationToken>()).Returns(expected);
+        _catalog.CreateAsync(
+                Arg.Is<CreateTemplateRequest>(r => r.Nit == "9000000001"),
+                Arg.Any<CancellationToken>())
+            .Returns(expected);
 
         var sut = new CreateTemplateUseCase(_catalog, new CreateTemplateRequestValidator());
         var result = await sut.ExecuteAsync(request);
@@ -62,15 +65,36 @@ public sealed class TemplateUseCaseTests
     }
 
     [Fact]
+    public async Task List_WhenNitMissing_ThrowsValidationError()
+    {
+        var sut = new ListTemplatesUseCase(_catalog);
+
+        var ex = await Assert.ThrowsAsync<AppException>(() => sut.ExecuteAsync(""));
+
+        Assert.Equal(AppErrorCodes.ValidationError, ex.Code);
+    }
+
+    [Fact]
+    public async Task List_WhenNitProvided_CallsCatalogWithNormalizedNit()
+    {
+        _catalog.ListAsync("900000000", Arg.Any<CancellationToken>())
+            .Returns(Array.Empty<TemplateDto>());
+
+        var sut = new ListTemplatesUseCase(_catalog);
+        await sut.ExecuteAsync("900.000.000");
+
+        await _catalog.Received(1).ListAsync("900000000", Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
     public async Task SaveDraft_WhenStatusPublishedAndMissing_ThrowsTemplateNotFound()
     {
         var id = Guid.NewGuid();
-        _catalog.PublishAsync(id, Arg.Any<CancellationToken>())
-            .Returns<Task<TemplateVersionDto>>(_ => throw new KeyNotFoundException());
+        _catalog.GetBundleAsync(id, Arg.Any<CancellationToken>()).Returns((TemplateBundleDto?)null);
 
         var sut = new SaveDraftUseCase(_catalog, new SaveDraftRequestValidator());
         var ex = await Assert.ThrowsAsync<AppException>(() =>
-            sut.ExecuteAsync(id, new SaveDraftRequest(Status: "published")));
+            sut.ExecuteAsync(id, new SaveDraftRequest(Status: "published"), "900000000"));
 
         Assert.Equal(AppErrorCodes.TemplateNotFound, ex.Code);
     }
@@ -79,6 +103,9 @@ public sealed class TemplateUseCaseTests
     public async Task SaveDraft_WhenStatusPublished_CallsPublish()
     {
         var id = Guid.NewGuid();
+        var bundle = new TemplateBundleDto(
+            new TemplateDto(id, "Demo", "factura", "draft", 1, DateTimeOffset.UtcNow, "900000000", false),
+            Array.Empty<TemplateVersionDto>());
         var version = new TemplateVersionDto(
             Guid.NewGuid(),
             id,
@@ -90,10 +117,11 @@ public sealed class TemplateUseCaseTests
             "[]",
             DateTimeOffset.UtcNow,
             true);
+        _catalog.GetBundleAsync(id, Arg.Any<CancellationToken>()).Returns(bundle);
         _catalog.PublishAsync(id, Arg.Any<CancellationToken>()).Returns(version);
 
         var sut = new SaveDraftUseCase(_catalog, new SaveDraftRequestValidator());
-        var result = await sut.ExecuteAsync(id, new SaveDraftRequest(Status: "published"));
+        var result = await sut.ExecuteAsync(id, new SaveDraftRequest(Status: "published"), "900000000");
 
         Assert.True(result.IsPublished);
         await _catalog.Received(1).PublishAsync(id, Arg.Any<CancellationToken>());
@@ -102,12 +130,28 @@ public sealed class TemplateUseCaseTests
     }
 
     [Fact]
+    public async Task SaveDraft_WhenWrongNit_ThrowsTemplateNotFound()
+    {
+        var id = Guid.NewGuid();
+        var bundle = new TemplateBundleDto(
+            new TemplateDto(id, "Demo", "factura", "draft", 1, DateTimeOffset.UtcNow, "900000000", false),
+            Array.Empty<TemplateVersionDto>());
+        _catalog.GetBundleAsync(id, Arg.Any<CancellationToken>()).Returns(bundle);
+
+        var sut = new SaveDraftUseCase(_catalog, new SaveDraftRequestValidator());
+        var ex = await Assert.ThrowsAsync<AppException>(() =>
+            sut.ExecuteAsync(id, new SaveDraftRequest(Status: "published"), "111111111"));
+
+        Assert.Equal(AppErrorCodes.TemplateNotFound, ex.Code);
+    }
+
+    [Fact]
     public async Task SaveDraft_WhenDraftWithoutHtml_ThrowsValidationError()
     {
         var sut = new SaveDraftUseCase(_catalog, new SaveDraftRequestValidator());
 
         var ex = await Assert.ThrowsAsync<AppException>(() =>
-            sut.ExecuteAsync(Guid.NewGuid(), new SaveDraftRequest(Status: "draft")));
+            sut.ExecuteAsync(Guid.NewGuid(), new SaveDraftRequest(Status: "draft"), "900000000"));
 
         Assert.Equal(AppErrorCodes.ValidationError, ex.Code);
     }
@@ -119,7 +163,22 @@ public sealed class TemplateUseCaseTests
         _catalog.GetBundleAsync(id, Arg.Any<CancellationToken>()).Returns((TemplateBundleDto?)null);
 
         var sut = new GetTemplateUseCase(_catalog);
-        var ex = await Assert.ThrowsAsync<AppException>(() => sut.ExecuteAsync(id));
+        var ex = await Assert.ThrowsAsync<AppException>(() => sut.ExecuteAsync(id, "900000000"));
+
+        Assert.Equal(AppErrorCodes.TemplateNotFound, ex.Code);
+    }
+
+    [Fact]
+    public async Task Get_WhenWrongNit_ThrowsTemplateNotFound()
+    {
+        var id = Guid.NewGuid();
+        var bundle = new TemplateBundleDto(
+            new TemplateDto(id, "Demo", "factura", "draft", 1, DateTimeOffset.UtcNow, "900000000", false),
+            Array.Empty<TemplateVersionDto>());
+        _catalog.GetBundleAsync(id, Arg.Any<CancellationToken>()).Returns(bundle);
+
+        var sut = new GetTemplateUseCase(_catalog);
+        var ex = await Assert.ThrowsAsync<AppException>(() => sut.ExecuteAsync(id, "111111111"));
 
         Assert.Equal(AppErrorCodes.TemplateNotFound, ex.Code);
     }

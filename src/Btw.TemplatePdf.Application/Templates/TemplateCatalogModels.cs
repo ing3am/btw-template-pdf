@@ -60,7 +60,8 @@ public sealed record SaveDraftRequest(
 /// <summary>Persistence port for studio template catalog operations.</summary>
 public interface ITemplateCatalog
 {
-    Task<IReadOnlyList<TemplateDto>> ListAsync(CancellationToken cancellationToken = default);
+    /// <param name="nit">Normalized company NIT (digits only). Required for multi-tenant scoping.</param>
+    Task<IReadOnlyList<TemplateDto>> ListAsync(string nit, CancellationToken cancellationToken = default);
 
     Task<TemplateBundleDto?> GetBundleAsync(Guid id, CancellationToken cancellationToken = default);
 
